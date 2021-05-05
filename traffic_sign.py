@@ -1,54 +1,47 @@
-import numpy as np 
-import pandas as pd 
-import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import os
 import cv2
+import matplotlib.pyplot as plt
 import tensorflow as tf
 from PIL import Image
-import os
 from sklearn.model_selection import train_test_split
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Conv2D, MaxPool2D, Dense, Flatten, Dropout
+from sklearn.metrics import accuracy_score
+from keras.utils import to_categorical
+from keras.models import Sequential, load_model
+from keras.layers import Conv2D, MaxPool2D, Dense, Flatten, Dropout
 
-data = []
-labels = []
-classes = 43
-cur_path = os.getcwd()
+data_set = []
+class_labels = []
+total_classes = 43
+curr_path = os.getcwd()
 
-#Retrieving the images and their labels 
-for i in range(classes):
-    path = os.path.join(cur_path,'Train',str(i))
-    images = os.listdir(path)
-    # print(images)
+for i in range(total_classes):
+	path = os.path.join(curr_path,'train',str(i))
+	images = os.listdir(path)
 
-    for a in images:
-        try:
-            image = Image.open(path + '/'+ a)
-            image = image.resize((30,30))
-            image = np.array(image)
-            #sim = Image.fromarray(image)
-            data.append(image)
-            labels.append(i)
-        except:
-            print("Error loading image")
+	for j in images:
+		try:
+			image = Image.open(path + '/' + j)
+			image = image.resize((30,30))
+			image = np.array(image)
+			data_set.append(image)
+			class_labels.append(i)
+		except:
+			print("Error loading the image")
 
-#Converting lists into numpy arrays
-data = np.array(data)
-labels = np.array(labels)
+data_set = np.array(data_set)
+class_labels = np.array(class_labels)
+# print(len(data_set),len(class_labels))
 
-print(data.shape, labels.shape)
-#Splitting training and testing dataset
-X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.2, random_state=42)
+x_train,x_test,y_train,y_test = train_test_split(data_set,class_labels,test_size = 0.3, random_state = 42)
+print(x_train.shape,x_test.shape)
 
-print(X_train.shape, X_test.shape, y_train.shape, y_test.shape)
+y_train = to_categorical(y_train,43)
+y_test = to_categorical(y_test,43)
 
-#Converting the labels into one hot encoding
-y_train = to_categorical(y_train, 43)
-y_test = to_categorical(y_test, 43)
-
-#Building the model
 model = Sequential()
-model.add(Conv2D(filters=32, kernel_size=(5,5), activation='relu', input_shape=X_train.shape[1:]))
+model.add(Conv2D(filters=32, kernel_size=(5,5), activation='relu', input_shape=x_train.shape[1:]))
 model.add(Conv2D(filters=32, kernel_size=(5,5), activation='relu'))
 model.add(MaxPool2D(pool_size=(2, 2)))
 model.add(Dropout(rate=0.25))
@@ -65,47 +58,37 @@ model.add(Dense(43, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 epochs = 15
-history = model.fit(X_train, y_train, batch_size=32, epochs=epochs, validation_data=(X_test, y_test))
-model.save("my_model.h5")
+history = model.fit(x_train, y_train, batch_size=32, epochs=epochs, validation_data=(x_test, y_test))
+model.save("trained_model.h5")
 
-#plotting graphs for accuracy 
 plt.figure(0)
-plt.plot(history.history['accuracy'], label='training accuracy')
-plt.plot(history.history['val_accuracy'], label='val accuracy')
-plt.title('Accuracy')
+plt.plot(history.history['accuracy'],label = 'Training Accuracy')
+plt.plot(history.history['val_accuracy'],label = 'val accuracy')
+plt.title('ACCURACY')
 plt.xlabel('epochs')
-plt.ylabel('accuracy')
+plt.ylabel('Accuracy')
 plt.legend()
 plt.show()
 
 plt.figure(1)
-plt.plot(history.history['loss'], label='training loss')
-plt.plot(history.history['val_loss'], label='val loss')
-plt.title('Loss')
+plt.plot(history.history['loss'],label = 'Training loss')
+plt.plot(history.history['val_loss'],label = 'val loss')
+plt.title('LOSS')
 plt.xlabel('epochs')
-plt.ylabel('loss')
+plt.ylabel('Loss')
 plt.legend()
 plt.show()
 
-#testing accuracy on test dataset
-from sklearn.metrics import accuracy_score
-
 y_test = pd.read_csv('Test.csv')
+class_labels = y_test['ClassId'].values
+images_data = y_test['Path'].values
 
-labels = y_test["ClassId"].values
-imgs = y_test["Path"].values
+data = []
+for x in images_data:
+	image = Image.open(x)
+	image = image.resize((30,30))
+	data.append(np.array(image))
 
-data=[]
-
-for img in imgs:
-    image = Image.open(img)
-    image = image.resize((30,30))
-    data.append(np.array(image))
-
-X_test=np.array(data)
-
-pred = model.predict_classes(X_test)
-
-#Accuracy with the test data
-from sklearn.metrics import accuracy_score
-print(accuracy_score(labels, pred))
+x_test = np.array(data)
+predicted_labels = model.predict_classes(x_test)
+print(accuracy_score(class_labels,predicted_labels))
